@@ -163,6 +163,9 @@ def db_build(arglist):
                  choices=['en','en-us', 'en-US', 'en-GB'])
   opt.add_option('--language_name', action='store', default='Language')
   opt.add_option('--prep_only', action='store_true')
+  opt.add_option('--neo4j_in_docker', action='store', default='false')
+  opt.add_option('--docker_import_dir', action='store', default='')
+  
   opts, args = opt.parse_args(arglist)
   if not (len(args)==0 and opts.rf2 and opts.release_type and (opts.neopw or opts.neopw64)):
     print('Usage: db_build --rf2 <dir> --release_type snapshot/full --neopw <pw>')
@@ -261,8 +264,8 @@ def db_build(arglist):
          'mode':     ['build','prep','make_csvs','validate']},
     'TEMPLATE_PROCESSING':
         {'stepname': 'TEMPLATE_PROCESSING',
-         'cmd':      'python %s/snomed_g_template_tools.py instantiate %s/snomed_g_graphdb_cypher_%s.template build.cypher --rf2 %s --release_type %s' \
-                         % (snomed_g_bin, snomed_g_bin, ('create' if opts.action=='create' else 'update'), opts.rf2, opts.release_type),
+         'cmd':      'python %s/snomed_g_template_tools.py instantiate %s/snomed_g_graphdb_cypher_%s.template build.cypher --rf2 %s --release_type %s --neo4j_in_docker %s --docker_import_dir %s' \
+                         % (snomed_g_bin, snomed_g_bin, ('create' if opts.action=='create' else 'update'), opts.rf2, opts.release_type, opts.neo4j_in_docker, opts.docker_import_dir),
          'mode':     ['build','prep']},
     'CYPHER_EXECUTION':
         {'stepname': 'CYPHER_EXECUTION',

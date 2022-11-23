@@ -13,13 +13,11 @@
 // --------------------------------------------------------------------
 
 RETURN 'Removing defining-relationships (DRs) that changed source/destination';'
-USING PERIODIC COMMIT 200
 LOAD csv with headers from "<<<file_protocol>>><<<output_dir>>>defining_rel_chg.csv" as line
 MATCH (rg:RoleGroup)-[r {id: line.id}]->(c:ObjectConcept)
 DELETE r;
 
 RETURN 'Removing ISA relationships that changed the source or destination.';
-USING PERIODIC COMMIT 200
 LOAD csv with headers from "<<<file_protocol>>><<<output_dir>>>defining_rel_chg.csv" as line
 MATCH (b:ObjectConcept)-[r {id: line.id}]->(c:ObjectConcept)
 DELETE r;

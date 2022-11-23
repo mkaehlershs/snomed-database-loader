@@ -10,6 +10,20 @@ This upload script has been kindly donated by Scott Campbell and his team from t
 
 **Full manuscript:** Campbell WS, Pedersen J, McClay JC, Rao P, Bastola D, Campbell JR. [An alternative database approach for management of SNOMED CT and improved patient data queries](https://www.ncbi.nlm.nih.gov/pubmed/26305513). J Biomed Inform. 2015 Oct;57:350-7\. doi: 10.1016/j.jbi.2015.08.016\. Epub 2015 Aug 21\. PubMed PMID: 26305513.
 
+## Adaption to docker and Neo4j v5.1.0
+To support neo4j two additional parameters are added to the scrips:
+1. --neo4j_in_docker:
+This value schould be True if you run neo4j in docker. If so, the output dir on the computer where the python script runs is not the same as the import directory in the neo4j docker contains.
+2. --docker_import_dir 
+Neo4j import directory to support different path for output directory (on local computer that runs python) and impot directory in docker container.
+If neo4j import output director is mounted directly to neo4j import directory than just specify n.a. (Because of lacking python knowledge I was'nt able to path through an empty string)
+Run neo4j container like this:
+docker run --publish=7474:7474 --publish=7687:7687 --volume=$HOME/neo4j/data:/data --volume=$HOME/neo4j/import:/import --env NEO4J_dbms_directories_import=import  --env JAVA_OPTS='-Xmx4g' neo4j
+Run import scripts like this:
+python <repoPath>\snomed-database-loader\NEO4J\snomed_g_graphdb_build_tools.py db_build --action create --rf2 <unpacked snomed rf2 file>\Full --release_type full --neopw <neo4jpw> --output_dir $HOME\neo4j\Import --neo4j_in_docker True --docker_import_dir n.a.
+Only import of FULL terminology is tested.
+
+
 ## Create a Neo4j Graph from a FULL RF2 Release
 
 This is a Linux or Windows command-line operation requiring a Python 2.7 or Python 3.5 (or above) interpreter and the SNOMED_G software.

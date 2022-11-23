@@ -10,7 +10,6 @@
 
 // Create edges for association refset
 RETURN 'Creating ASSOCIATION REFSET edges between ObjectConcept nodes';
-USING PERIODIC COMMIT 200
 LOAD csv with headers from "<<<file_protocol>>><<<output_dir>>>assoc_refset_new.csv" as line
 with line
 MATCH (s:ObjectConcept { sctid: line.referencedComponentId }), (d:ObjectConcept { sctid: line.targetComponentId })

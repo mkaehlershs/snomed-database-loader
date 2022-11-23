@@ -69,6 +69,7 @@ def run_cypher(arglist):
     if next_cmd.startswith("""RETURN '"""): next_cmd = ''; continue
     if opts.verbose: print('Sending CYPHER:[%s]' % next_cmd)
     command_start = datetime.datetime.now()
+    next_cmd = next_cmd.replace("\'","\"").replace(":auto","") #:auto allows to running a cammand in batches in neo4j browser. This connection seems to have auto commit mode by default.
     try:
       temp_cursor = graph_db.run(next_cmd) # returns Cursor, empirical evidence (not in py2neo doc)
       # e.g. from doc -- graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").to_data_frame()
@@ -108,4 +109,6 @@ def parse_and_interpret(arglist):
 
 # MAIN
 parse_and_interpret(sys.argv[1:]) # causes sub-command processing to occur as well
+#arglist = ['run_cypher', 'build.cypher', '--verbose',  '--neopw', 'neo4j12345!']
+parse_and_interpret(arglist)
 sys.exit(0)

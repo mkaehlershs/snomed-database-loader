@@ -38,10 +38,12 @@ def instantiate(arglist):
   opt.add_option('--release_type', action='store', dest='release_type', choices=['delta','snapshot','full'])
   opt.add_option('--verbose',action='store_true',dest='verbose')
   opt.add_option('--action', action='store', dest='action', default='create', choices=['create','update'])
+  opt.add_option('--neo4j_in_docker', action='store')
+  opt.add_option('--docker_import_dir', action='store')
   opts, args = opt.parse_args(arglist)
   if not (len(args)==2 and opts.rf2 and opts.release_type):
     print('Usage: intantiate <template-file> <output-file> --rf2 <dir> --release_type {Full,Snapshot,Delta}'); sys.exit(1)
-  template_file, output_file = args
+  template_file, output_file = [args[0],args[1]]
   # Connect to RF2 files
   rf2_folders = snomed_g_lib_rf2.Rf2_Folders(opts.rf2, opts.release_type)
   # Information for creating the CSV files
@@ -52,6 +54,8 @@ def instantiate(arglist):
   config['release_date'] = rf2_folders.get_release_date()
   config['release_center'] = rf2_folders.get_release_center()
   config['output_dir'] = './'
+  config['neo4j_in_docker'] = opts.neo4j_in_docker
+  config['docker_import_dir'] = opts.docker_import_dir
 
   # Process template file
   fout = open(output_file, 'w')
@@ -59,21 +63,22 @@ def instantiate(arglist):
   release_center = config.get('release_center', 'INT')
   os_pathsep = config.get('os_pathsep', '/') # JGP 2015/10/07, no default previously
   output_dir = get_path(config['output_dir'], os_pathsep)
+  import_dir = config['docker_import_dir']
   if sys.platform=='win32': output_dir = output_dir.replace('\\','/') # JGP 2016/07/30 -- issue "c:\sno\build\us20160301/defining_rel_edge_rem.csv"
   terminology_dir = get_path(config['terminology_dir'], os_pathsep)
   config_file_suffix = '%s_%s' % (release_center, release_date)
+  if config['neo4j_in_docker'] != 'True' : import_dir =  output_dir
   file_protocol = 'file:///' if sys.platform in ['cygwin','win32','darwin'] else 'file:' # ubuntu is else case
   # NOTE: can result in 'file:////Users/<rest>' on Mac, replace by 'file:///Users/<rest>'
   # INSTANTIATION PT1 -- PROCESS FILES IN TEMPLATE, REPLACING TEMPLATES WITH INSTANTIATED VALUES
   for line in [x.rstrip('\n').rstrip('\r') for x in open(template_file)]:
       line = line.replace('<<<release_date>>>', release_date) \
-                 .replace('<<<output_dir>>>', output_dir) \
+                 .replace('<<<output_dir>>>', import_dir.replace('n.a.','')) \
                  .replace('<<<terminology_dir>>>', terminology_dir) \
                  .replace('<<<config_file_suffix>>>', config_file_suffix) \
                  .replace('<<<file_protocol>>>', file_protocol) \
                  .replace('file:////','file:///')
       print(line, file=fout)
-
   # INSTANTIATION PT2 -- DEFINING RELATIONSHIPS PROCESSING
   
   #                    Handle NEW defining relationships
@@ -104,15 +109,16 @@ def instantiate(arglist):
       print('// %s defining relationships' % rolename,file=fout)
       print('''RETURN 'NEW Defining relationships of type %s';''' % rolename,file=fout)
       print(file=fout)
-      print('USING PERIODIC COMMIT 200',file=fout)
-      load_csv_line = ('LOAD CSV with headers from "%s%sDR_%s_new.csv" as line' % (('file:///' if sys.platform in ['cygwin','win32','darwin'] else 'file:'),output_dir,typeId)).replace('file:////','file:///')
+      print(':auto CALL{',file=fout)
+      load_csv_line = ('LOAD CSV with headers from "%s%sDR_%s_new.csv" as line' % (('file:///' if sys.platform in ['cygwin','win32','darwin'] else 'file:'),import_dir,typeId)).replace('file:////','file:///').replace("n.a.","")
       print(load_csv_line,file=fout)
       print('with line, line.sctid as source_id, line.destinationId as dest_id, line.rolegroup as rolegroup_id',file=fout)
-      print('MERGE (rg:RoleGroup { sctid: source_id, rolegroup: rolegroup_id });',file=fout)
+      print('MERGE (rg:RoleGroup { sctid: source_id, rolegroup: rolegroup_id })',file=fout)
+      print('}IN TRANSACTIONS OF 50 ROWS;',file=fout)
       print(file=fout)
       print('// Add defining relationship edge in 2nd step, Java memory issue',file=fout)
-      print('USING PERIODIC COMMIT 200',file=fout)
-      load_csv_line = ('LOAD CSV with headers from "%s%sDR_%s_new.csv" as line' % (('file:///' if sys.platform in ['cygwin','win32','darwin'] else 'file:'),output_dir,typeId)).replace('file:////','file:///')
+      print(':auto CALL{',file=fout)
+      load_csv_line = ('LOAD CSV with headers from "%s%sDR_%s_new.csv" as line' % (('file:///' if sys.platform in ['cygwin','win32','darwin'] else 'file:'),import_dir,typeId)).replace('file:////','file:///').replace("n.a.","")
       print(load_csv_line,file=fout)
       print('with line, line.sctid as source_id, line.destinationId as dest_id, line.rolegroup as rolegroup_id',file=fout)
       print('MATCH (rg:RoleGroup { sctid: source_id, rolegroup: rolegroup_id })',file=fout)
@@ -123,7 +129,8 @@ def instantiate(arglist):
       print('                               rolegroup: rolegroup_id, effectiveTime: line.effectiveTime,',file=fout)
       print('                               moduleId: line.moduleId, characteristicTypeId: line.characteristicTypeId,',file=fout)
       print('                               modifierId: line.modifierId,',file=fout)
-      print('                               history: line.history }]->(c);',file=fout)
+      print('                               history: line.history }]->(c)',file=fout)
+      print('}IN TRANSACTIONS OF 50 ROWS;',file=fout)
   # close CSV, wrap up
   print('// Finito',file=fout)
   fout.close()
@@ -141,4 +148,9 @@ def parse_and_interpret(arglist):
 
 # MAIN
 parse_and_interpret(sys.argv[1:]) # causes sub-command processing to occur as well
+#os.chdir('C:\\Users\\z003w66d\\neo4j\\import')
+#arglis = ['instantiate', 'c:/Users/z003w66d/source/repos/snomed-database-loader/NEO4J//snomed_g_graphdb_cypher_create.template', 'build.cypher', '--rf2', 'C:\\SNOMED\\SnomedCT_InternationalRF2_PRODUCTION_20200731T120000Z\\SnomedCT_InternationalRF2_PRODUCTION_20200731T120000Z\\Full', '--release_type', 'full', '--neo4j_in_docker', 'True', '--docker_import_dir', 'n.a.']
+#parse_and_interpret(arglis)
+#saved_pwd = os.getcwd()
+#os.chdir(saved_pwd )
 sys.exit(0)
